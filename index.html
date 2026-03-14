@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Family Meal Planner</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f9f9f7;min-height:100vh;padding:16px;max-width:900px;margin:0 auto}
+.btn{padding:7px 14px;border-radius:8px;border:none;font-weight:700;cursor:pointer;font-size:13px;display:inline-block;text-decoration:none}
+.g{background:#2e7d32;color:white}.r{background:#e53935;color:white}.o{background:white;color:#2e7d32;border:1px solid #2e7d32}.gr{background:#eee;color:#333}
+.card{background:white;border-radius:10px;padding:12px 16px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:10px}
+.inp{width:100%;padding:8px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;box-sizing:border-box}
+.einp{padding:5px 8px;border-radius:6px;border:1px solid #ccc;font-size:12px;box-sizing:border-box}
+.row{display:flex;align-items:center;padding:8px 14px;border-bottom:1px solid #f5f5f5;gap:8px}
+.chk{width:20px;height:20px;border-radius:4px;border:2px solid #ddd;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer}
+.tag{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:none}
+.tabs{display:flex;background:white;border-radius:10px 10px 0 0;border-bottom:1px solid #ddd;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:10px 11px;border:none;background:none;cursor:pointer;font-size:11px;border-bottom:3px solid transparent;color:#555;font-weight:400;white-space:nowrap}
+.tab.active{border-bottom:3px solid #2e7d32;color:#2e7d32;font-weight:700}
+.vt{display:flex;background:white;border-radius:8px;border:1px solid #ddd;overflow:hidden}
+.vbtn{padding:7px 14px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:white;color:#333}
+.vbtn.on{background:#2e7d32;color:white}
+label{font-size:12px;font-weight:700;color:#555;display:block;margin-bottom:4px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.irow{display:flex;gap:8px;margin-bottom:7px;align-items:center}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ── CONSTANTS ──────────────────────────────────────────────────────────────
+var COLORS=["#1565c0","#6a1b9a","#b71c1c","#2e7d32","#e65100","#00695c","#4527a0","#ad1457","#0277bd","#558b2f","#4e342e","#37474f","#c62828","#283593"];
+var DAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+var TAGS=["all","recommended","mexican","asian","italian","american","comfort","seafood","grilling","quick","budget","high-protein","healthy","meal-prep","one-pan","soup","special","vegetarian"];
+
+var STAPLE_CATEGORIES={
+  "Produce":["Bananas","Avocados","Garlic","Berries","Roma Tomatoes","Cucumbers","Onion"],
+  "Dairy & Fridge":["Fairlife Milk","Eggs","Yogurt","Butter","Cheese"],
+  "Pantry":["Kodiak Oats","Coffee","Rice Crisps","Sourdough Bread","Protein Powder"],
+  "Household & Pet":["Freshpet","Toilet Paper","Ziploc Bags","Paper Towels","Cleaner"]
+};
+var STAPLE_ORDER=["Produce","Dairy & Fridge","Pantry","Household & Pet"];
+
+var ROTATIONS=[
+  {label:"Week A — Mexican & Asian Focus",color:"#1565c0",note:"Carnitas Sunday feeds Wed soup. Batch rice covers multiple meals.",
+   plan:{Sunday:"Carnitas Tacos",Monday:"Chicken Teriyaki Rice Veggies",Tuesday:"Spaghetti",Wednesday:"Carnita Soup",Thursday:"Beef Bulgogi Rice Veggies",Friday:"Turkey Quesadillas",Saturday:"Leftovers Bowls Night"}},
+  {label:"Week B — Comfort & Quick Wins",color:"#6a1b9a",note:"No-cook Wednesday saves energy. Saturday steak is the weekly treat.",
+   plan:{Sunday:"Slow Cooker White Chicken Chili",Monday:"Chicken Bowl",Tuesday:"Lasagna Soup",Wednesday:"Sandwiches Subs",Thursday:"Beef Stroganoff",Friday:"Pizza",Saturday:"Steak"}},
+  {label:"Week C — Healthy & Seafood Forward",color:"#00695c",note:"Two salmon meals use Costco bulk pack. Sheet pan fajitas = fastest cleanup.",
+   plan:{Sunday:"Slow Cooker Beef Barbacoa",Monday:"Honey Garlic Salmon",Tuesday:"Sheet Pan Chicken Fajitas",Wednesday:"Leftovers Bowls Night",Thursday:"Teriyaki Salmon Bowls",Friday:"Enchiladas",Saturday:"Hamburgers"}}
+];
+
+var INIT_MEALS={
+  "Alfredo":{tags:["italian","comfort","family-favorite"],time:"30 min",serves:4,cost:11,ingredients:[{item:"Fettuccine pasta",qty:"12 oz"},{item:"Heavy cream",qty:"1 cup"},{item:"Butter",qty:"4 tbsp"},{item:"Fresh grated parmesan",qty:"1 cup"},{item:"Garlic cloves",qty:"3"},{item:"Chicken breast optional",qty:"1 lb"},{item:"Black pepper",qty:"1 tsp"}]},
+  "Arroz con Pollo":{tags:["mexican","comfort","one-pan","family-favorite"],time:"50 min",serves:6,cost:12,ingredients:[{item:"Chicken thighs bone-in",qty:"2 lbs"},{item:"Long grain white rice",qty:"2 cups"},{item:"Chicken broth",qty:"3 cups"},{item:"Diced tomatoes canned",qty:"1 can"},{item:"Green peas frozen",qty:"1 cup"},{item:"Onion",qty:"1"},{item:"Bell pepper",qty:"1"},{item:"Garlic cloves",qty:"3"},{item:"Cumin",qty:"1 tsp"},{item:"Sazon seasoning",qty:"1 packet"}]},
+  "Baked Chicken Tenders Sweet Potato Fries":{tags:["american","family-favorite","healthy"],time:"40 min",serves:4,cost:12,ingredients:[{item:"Chicken tenders",qty:"2 lbs"},{item:"Sweet potatoes",qty:"3 large"},{item:"Panko breadcrumbs",qty:"1 cup"},{item:"Eggs",qty:"2"},{item:"Garlic powder",qty:"1 tsp"},{item:"Paprika",qty:"1 tsp"},{item:"Olive oil",qty:"2 tbsp"},{item:"Ranch or honey mustard",qty:"1/2 cup"}]},
+  "Beef and Broccoli":{tags:["asian","family-favorite","quick"],time:"25 min",serves:4,cost:15,ingredients:[{item:"Flank steak thin sliced",qty:"1.5 lbs"},{item:"Broccoli florets",qty:"4 cups"},{item:"Soy sauce",qty:"1/4 cup"},{item:"Oyster sauce",qty:"2 tbsp"},{item:"Sesame oil",qty:"1 tbsp"},{item:"Garlic cloves",qty:"3"},{item:"Cornstarch",qty:"2 tbsp"},{item:"White rice",qty:"2 cups"}]},
+  "Beef Bulgogi Rice Veggies":{tags:["asian","family-favorite","high-protein"],time:"30 min + marinade",serves:4,cost:16,ingredients:[{item:"Ribeye or sirloin thin sliced",qty:"1.5 lbs"},{item:"Soy sauce",qty:"1/4 cup"},{item:"Sesame oil",qty:"2 tbsp"},{item:"Brown sugar",qty:"2 tbsp"},{item:"Garlic cloves",qty:"4"},{item:"Fresh ginger",qty:"1 inch"},{item:"White rice",qty:"2 cups"},{item:"Green onions",qty:"4"},{item:"Broccoli or zucchini",qty:"2 cups"}]},
+  "Beef Stroganoff":{tags:["comfort","family-favorite","one-pan"],time:"35 min",serves:4,cost:14,ingredients:[{item:"Beef sirloin thin sliced",qty:"1.5 lbs"},{item:"Egg noodles",qty:"12 oz"},{item:"Beef broth",qty:"1 cup"},{item:"Sour cream",qty:"1 cup"},{item:"Cream of mushroom soup",qty:"1 can"},{item:"Sliced mushrooms",qty:"8 oz"},{item:"Onion",qty:"1"},{item:"Garlic cloves",qty:"2"}]},
+  "Black Bean Sweet Potato Tacos":{tags:["mexican","recommended","vegetarian","budget","healthy"],time:"30 min",serves:4,cost:8,recipe:"https://www.budgetbytes.com/sweet-potato-black-bean-tacos/",ingredients:[{item:"Sweet potatoes",qty:"2 large"},{item:"Black beans canned",qty:"2 cans"},{item:"Corn tortillas",qty:"12"},{item:"Avocado",qty:"2"},{item:"Lime",qty:"2"},{item:"Chili powder",qty:"1 tsp"},{item:"Cumin",qty:"1 tsp"},{item:"Cilantro",qty:"1 bunch"},{item:"Shredded cabbage",qty:"1 cup"}]},
+  "Butter Chicken":{tags:["asian","comfort","family-favorite"],time:"40 min",serves:4,cost:14,ingredients:[{item:"Chicken breast",qty:"1.5 lbs"},{item:"Butter chicken sauce jarred",qty:"1 jar"},{item:"Heavy cream",qty:"1/4 cup"},{item:"Butter",qty:"2 tbsp"},{item:"Garlic cloves",qty:"3"},{item:"Fresh ginger",qty:"1 inch"},{item:"Basmati rice",qty:"2 cups"},{item:"Naan bread",qty:"4 pieces"}]},
+  "Carnita Soup":{tags:["mexican","comfort","soup"],time:"30 min",serves:6,cost:11,ingredients:[{item:"Leftover carnitas or pork",qty:"1.5 lbs"},{item:"Chicken or pork broth",qty:"6 cups"},{item:"Potatoes",qty:"3 medium"},{item:"Onion",qty:"1"},{item:"Garlic cloves",qty:"3"},{item:"Green chiles canned",qty:"1 can"},{item:"Cilantro",qty:"1 bunch"},{item:"Lime",qty:"2"}]},
+  "Carnitas Tacos":{tags:["mexican","family-favorite","meal-prep"],time:"8h slow cook",serves:6,cost:14,ingredients:[{item:"Pork shoulder",qty:"3 lbs"},{item:"Orange juice",qty:"1/2 cup"},{item:"Cumin",qty:"2 tsp"},{item:"Garlic cloves",qty:"4"},{item:"Flour tortillas",qty:"12"},{item:"White onion",qty:"1"},{item:"Cilantro",qty:"1 bunch"},{item:"Lime",qty:"3"}]},
+  "Chicken and Veggie Fried Rice":{tags:["asian","recommended","one-pan","budget","quick"],time:"25 min",serves:4,cost:10,recipe:"https://www.budgetbytes.com/better-than-takeout-fried-rice/",ingredients:[{item:"Chicken breast diced",qty:"1 lb"},{item:"Cooked white rice day-old",qty:"3 cups"},{item:"Frozen peas and carrots",qty:"1 cup"},{item:"Eggs",qty:"3"},{item:"Soy sauce",qty:"3 tbsp"},{item:"Sesame oil",qty:"1 tbsp"},{item:"Green onions",qty:"3"},{item:"Garlic cloves",qty:"2"}]},
+  "Chicken Bowl":{tags:["high-protein","meal-prep","healthy"],time:"30 min",serves:4,cost:13,ingredients:[{item:"Chicken breast",qty:"1.5 lbs"},{item:"Brown rice",qty:"2 cups"},{item:"Black beans canned",qty:"1 can"},{item:"Corn canned",qty:"1 can"},{item:"Avocado",qty:"2"},{item:"Salsa",qty:"1 cup"},{item:"Lime",qty:"2"},{item:"Cumin",qty:"1 tsp"}]},
+  "Chicken Kabobs":{tags:["grilling","high-protein","healthy"],time:"30 min + marinade",serves:4,cost:14,ingredients:[{item:"Chicken breast cubed",qty:"1.5 lbs"},{item:"Bell peppers",qty:"2"},{item:"Zucchini",qty:"2"},{item:"Red onion",qty:"1"},{item:"Olive oil",qty:"3 tbsp"},{item:"Lemon juice",qty:"1/4 cup"},{item:"Garlic cloves",qty:"3"},{item:"Greek or Italian seasoning",qty:"2 tsp"}]},
+  "Chicken Nachos":{tags:["mexican","fun","family-favorite"],time:"30 min",serves:4,cost:11,ingredients:[{item:"Chicken breast shredded",qty:"1.5 lbs"},{item:"Tortilla chips",qty:"1 bag"},{item:"Shredded cheese",qty:"2 cups"},{item:"Black beans canned",qty:"1 can"},{item:"Jalapenos sliced",qty:"1/2 cup"},{item:"Sour cream",qty:"1/2 cup"},{item:"Pico de gallo",qty:"1 cup"},{item:"Avocado",qty:"2"}]},
+  "Chicken Pita Wraps":{tags:["mediterranean","quick","high-protein"],time:"25 min",serves:4,cost:12,ingredients:[{item:"Chicken breast grilled sliced",qty:"1.5 lbs"},{item:"Pita bread",qty:"4"},{item:"Tzatziki sauce",qty:"1/2 cup"},{item:"Cucumber",qty:"1"},{item:"Tomatoes",qty:"2"},{item:"Red onion",qty:"1/2"},{item:"Feta cheese",qty:"1/2 cup"},{item:"Greek seasoning",qty:"2 tsp"}]},
+  "Chicken Sandwich":{tags:["american","quick","family-favorite"],time:"25 min",serves:4,cost:12,ingredients:[{item:"Chicken breast pounded thin",qty:"4 pieces"},{item:"Brioche buns",qty:"4"},{item:"Buttermilk",qty:"1 cup"},{item:"All-purpose flour",qty:"1 cup"},{item:"Pickle slices",qty:"1 jar"},{item:"Lettuce",qty:"1 head"},{item:"Mayo",qty:"1/4 cup"}]},
+  "Chicken Soup":{tags:["comfort","soup","healthy"],time:"45 min",serves:6,cost:10,ingredients:[{item:"Chicken breast or thighs",qty:"1.5 lbs"},{item:"Chicken broth",qty:"8 cups"},{item:"Carrots",qty:"3"},{item:"Celery stalks",qty:"3"},{item:"Onion",qty:"1"},{item:"Egg noodles or rice",qty:"2 cups"},{item:"Garlic cloves",qty:"3"},{item:"Fresh parsley",qty:"1/4 cup"}]},
+  "Chicken Tacos":{tags:["mexican","family-favorite","quick"],time:"25 min",serves:4,cost:12,ingredients:[{item:"Chicken breast",qty:"1.5 lbs"},{item:"Taco seasoning",qty:"1 packet"},{item:"Flour tortillas",qty:"8"},{item:"Shredded cheese",qty:"1 cup"},{item:"Pico de gallo",qty:"1 cup"},{item:"Avocado",qty:"2"},{item:"Lime",qty:"2"},{item:"Cilantro",qty:"1 bunch"}]},
+  "Chicken Teriyaki Rice Veggies":{tags:["asian","family-favorite","high-protein"],time:"30 min",serves:4,cost:13,ingredients:[{item:"Chicken breast or thighs",qty:"1.5 lbs"},{item:"Teriyaki sauce",qty:"1/2 cup"},{item:"White rice",qty:"2 cups"},{item:"Broccoli",qty:"2 cups"},{item:"Carrots",qty:"2"},{item:"Sesame seeds",qty:"1 tbsp"},{item:"Soy sauce",qty:"2 tbsp"}]},
+  "Chicken Veggie Stir Fry":{tags:["asian","quick","high-protein","low-carb"],time:"25 min",serves:4,cost:13,ingredients:[{item:"Chicken breast",qty:"1.5 lbs"},{item:"Broccoli florets",qty:"2 cups"},{item:"Snap peas",qty:"1 cup"},{item:"Bell peppers",qty:"2"},{item:"Soy sauce",qty:"3 tbsp"},{item:"Sesame oil",qty:"1 tbsp"},{item:"Garlic cloves",qty:"3"},{item:"White rice",qty:"2 cups"}]},
+  "Chili Dogs":{tags:["american","budget","family-favorite","quick"],time:"20 min",serves:4,cost:8,ingredients:[{item:"Hot dogs",qty:"8"},{item:"Hot dog buns",qty:"8"},{item:"Canned chili",qty:"2 cans"},{item:"Shredded cheddar cheese",qty:"1 cup"},{item:"White onion diced",qty:"1/2 cup"},{item:"Mustard",qty:"as needed"}]},
+  "Crunch Wrap":{tags:["mexican","family-favorite","fun"],time:"35 min",serves:4,cost:12,ingredients:[{item:"Ground beef",qty:"1 lb"},{item:"Large flour tortillas",qty:"4"},{item:"Tostada shells",qty:"4"},{item:"Nacho cheese sauce",qty:"1 cup"},{item:"Sour cream",qty:"1/2 cup"},{item:"Shredded lettuce",qty:"1 cup"},{item:"Tomatoes diced",qty:"1"},{item:"Taco seasoning",qty:"1 packet"}]},
+  "Enchiladas":{tags:["mexican","family-favorite","comfort"],time:"45 min",serves:6,cost:12,ingredients:[{item:"Chicken breast shredded",qty:"2 lbs"},{item:"Corn tortillas",qty:"12"},{item:"Red enchilada sauce",qty:"2 cans"},{item:"Shredded Mexican cheese",qty:"2 cups"},{item:"Sour cream",qty:"1/2 cup"},{item:"Black olives sliced",qty:"1 can"},{item:"Green onions",qty:"4"}]},
+  "Enchiladas Calabasitas":{tags:["mexican","family-favorite"],time:"50 min",serves:6,cost:13,ingredients:[{item:"Chicken breast shredded",qty:"1.5 lbs"},{item:"Corn tortillas",qty:"12"},{item:"Red enchilada sauce",qty:"2 cans"},{item:"Shredded cheese",qty:"2 cups"},{item:"Zucchini",qty:"2"},{item:"Yellow squash",qty:"2"},{item:"Corn kernels",qty:"1 cup"},{item:"Butter",qty:"2 tbsp"}]},
+  "Fajitas":{tags:["mexican","family-favorite","quick"],time:"30 min",serves:4,cost:14,ingredients:[{item:"Chicken or skirt steak",qty:"1.5 lbs"},{item:"Bell peppers",qty:"3"},{item:"White onion",qty:"1"},{item:"Flour tortillas",qty:"8"},{item:"Fajita seasoning",qty:"2 tbsp"},{item:"Lime",qty:"2"},{item:"Shredded cheese",qty:"1 cup"},{item:"Sour cream",qty:"1/2 cup"}]},
+  "Fish Tacos":{tags:["mexican","seafood","quick"],time:"25 min",serves:4,cost:15,ingredients:[{item:"White fish fillets",qty:"1.5 lbs"},{item:"Corn tortillas",qty:"12"},{item:"Shredded cabbage",qty:"2 cups"},{item:"Lime",qty:"2"},{item:"Chipotle mayo",qty:"1/2 cup"},{item:"Avocado",qty:"2"},{item:"Taco seasoning",qty:"1 packet"}]},
+  "Grilled Cheese Tomato Soup":{tags:["comfort","budget","quick","family-favorite"],time:"20 min",serves:4,cost:7,ingredients:[{item:"Sourdough or white bread",qty:"8 slices"},{item:"Butter",qty:"4 tbsp"},{item:"Cheddar cheese slices",qty:"8"},{item:"Tomato soup canned",qty:"2 cans"},{item:"Milk or cream",qty:"1/2 cup"}]},
+  "Ground Turkey Zucchini Skillet":{tags:["recommended","one-pan","quick","healthy","low-carb"],time:"25 min",serves:4,cost:11,recipe:"https://www.skinnytaste.com/turkey-zucchini-skillet/",ingredients:[{item:"Ground turkey",qty:"1.5 lbs"},{item:"Zucchini",qty:"3 medium"},{item:"Diced tomatoes canned",qty:"1 can"},{item:"Garlic cloves",qty:"3"},{item:"Italian seasoning",qty:"1 tsp"},{item:"Olive oil",qty:"1 tbsp"},{item:"Parmesan cheese",qty:"1/4 cup"}]},
+  "Hamburgers":{tags:["american","grilling","family-favorite"],time:"25 min",serves:4,cost:12,ingredients:[{item:"Ground beef 80/20",qty:"1.5 lbs"},{item:"Hamburger buns",qty:"4"},{item:"American cheese slices",qty:"4"},{item:"Lettuce",qty:"1 head"},{item:"Tomatoes",qty:"2"},{item:"Red onion",qty:"1"},{item:"Pickles",qty:"1 jar"},{item:"Ketchup and mustard",qty:"as needed"}]},
+  "Honey Garlic Salmon":{tags:["seafood","recommended","quick","healthy","high-protein"],time:"20 min",serves:4,cost:18,recipe:"https://www.skinnytaste.com/honey-garlic-salmon/",ingredients:[{item:"Salmon fillets",qty:"4 pieces"},{item:"Honey",qty:"3 tbsp"},{item:"Soy sauce",qty:"2 tbsp"},{item:"Garlic cloves",qty:"3"},{item:"Lemon",qty:"1"},{item:"Olive oil",qty:"1 tbsp"},{item:"White rice",qty:"2 cups"},{item:"Broccoli",qty:"2 cups"}]},
+  "Huli Huli Chicken Rice Veggies":{tags:["asian","family-favorite","grilling"],time:"30 min + marinade",serves:4,cost:13,ingredients:[{item:"Boneless chicken thighs",qty:"2 lbs"},{item:"Pineapple juice",qty:"1/2 cup"},{item:"Soy sauce",qty:"1/4 cup"},{item:"Ketchup",qty:"3 tbsp"},{item:"Brown sugar",qty:"2 tbsp"},{item:"Fresh ginger",qty:"1 inch"},{item:"White rice",qty:"2 cups"},{item:"Mixed veggies",qty:"2 cups"}]},
+  "Korean Rice Bowl":{tags:["asian","family-favorite","high-protein"],time:"30 min",serves:4,cost:14,ingredients:[{item:"Ground beef or pork",qty:"1.5 lbs"},{item:"Soy sauce",qty:"3 tbsp"},{item:"Sesame oil",qty:"1 tbsp"},{item:"Gochujang",qty:"1 tbsp"},{item:"Garlic cloves",qty:"3"},{item:"White rice",qty:"2 cups"},{item:"Cucumber",qty:"1"},{item:"Shredded carrots",qty:"1 cup"},{item:"Eggs",qty:"4"}]},
+  "Lasagna":{tags:["italian","comfort","meal-prep","family-favorite"],time:"90 min",serves:8,cost:15,ingredients:[{item:"Ground beef",qty:"1.5 lbs"},{item:"Lasagna noodles",qty:"1 box"},{item:"Ricotta cheese",qty:"15 oz"},{item:"Shredded mozzarella",qty:"2 cups"},{item:"Marinara sauce",qty:"1 jar"},{item:"Parmesan cheese",qty:"1/2 cup"},{item:"Egg",qty:"1"},{item:"Italian seasoning",qty:"1 tbsp"}]},
+  "Lasagna Soup":{tags:["italian","comfort","soup","one-pan"],time:"40 min",serves:6,cost:11,ingredients:[{item:"Ground beef or turkey",qty:"1 lb"},{item:"Lasagna noodles broken",qty:"8 oz"},{item:"Marinara sauce",qty:"1 jar"},{item:"Broth",qty:"4 cups"},{item:"Ricotta cheese",qty:"1 cup"},{item:"Shredded mozzarella",qty:"1 cup"},{item:"Italian seasoning",qty:"1 tbsp"},{item:"Garlic cloves",qty:"3"}]},
+  "Leftovers Bowls Night":{tags:["budget","no-cook","easy"],time:"5 min",serves:4,cost:0,ingredients:[{item:"Use leftovers from the week",qty:"as needed"}]},
+  "One-Pan Lemon Herb Chicken Potatoes":{tags:["american","recommended","one-pan","healthy"],time:"50 min",serves:4,cost:13,recipe:"https://www.budgetbytes.com/lemon-herb-roasted-chicken-and-potatoes/",ingredients:[{item:"Chicken thighs bone-in",qty:"2 lbs"},{item:"Baby potatoes",qty:"1.5 lbs"},{item:"Lemon",qty:"2"},{item:"Garlic cloves",qty:"4"},{item:"Fresh rosemary",qty:"2 sprigs"},{item:"Olive oil",qty:"3 tbsp"},{item:"Paprika",qty:"1 tsp"}]},
+  "Pizza":{tags:["american","fun","family-favorite"],time:"25 min",serves:4,cost:10,ingredients:[{item:"Pizza dough store-bought",qty:"1 lb"},{item:"Pizza sauce",qty:"1 cup"},{item:"Shredded mozzarella",qty:"2 cups"},{item:"Pepperoni or toppings",qty:"4 oz"},{item:"Olive oil",qty:"2 tbsp"},{item:"Italian seasoning",qty:"1 tsp"}]},
+  "Red Chile Pork":{tags:["mexican","comfort","meal-prep"],time:"3h cook",serves:6,cost:13,ingredients:[{item:"Pork shoulder",qty:"2.5 lbs"},{item:"Dried red chiles",qty:"6"},{item:"Garlic cloves",qty:"4"},{item:"Chicken broth",qty:"2 cups"},{item:"Cumin",qty:"1 tsp"},{item:"Oregano",qty:"1 tsp"},{item:"Flour tortillas",qty:"8"}]},
+  "Salmon Bowl":{tags:["seafood","healthy","high-protein"],time:"30 min",serves:4,cost:19,ingredients:[{item:"Salmon fillets",qty:"4 pieces"},{item:"White or brown rice",qty:"2 cups"},{item:"Avocado",qty:"2"},{item:"Cucumber",qty:"1"},{item:"Frozen edamame",qty:"1 cup"},{item:"Soy sauce",qty:"3 tbsp"},{item:"Sesame oil",qty:"1 tbsp"},{item:"Sriracha mayo",qty:"1/4 cup"}]},
+  "Salmon Sweet Potatoes Veggies":{tags:["seafood","healthy","high-protein"],time:"35 min",serves:4,cost:18,ingredients:[{item:"Salmon fillets",qty:"4 pieces"},{item:"Sweet potatoes",qty:"3 large"},{item:"Broccoli or asparagus",qty:"2 cups"},{item:"Olive oil",qty:"3 tbsp"},{item:"Lemon",qty:"2"},{item:"Garlic powder",qty:"1 tsp"},{item:"Paprika",qty:"1 tsp"}]},
+  "Sandwiches Subs":{tags:["american","quick","budget","no-cook"],time:"10 min",serves:4,cost:10,ingredients:[{item:"Deli turkey or ham",qty:"1/2 lb"},{item:"Sub rolls or bread",qty:"4"},{item:"Provolone or swiss cheese",qty:"4 slices"},{item:"Lettuce",qty:"1 head"},{item:"Tomatoes",qty:"2"},{item:"Red onion",qty:"1/2"},{item:"Mayo and mustard",qty:"as needed"}]},
+  "Sheet Pan Chicken Fajitas":{tags:["mexican","recommended","one-pan","quick","healthy"],time:"30 min",serves:4,cost:13,recipe:"https://www.budgetbytes.com/sheet-pan-chicken-fajitas/",ingredients:[{item:"Boneless chicken thighs",qty:"1.5 lbs"},{item:"Bell peppers mixed",qty:"3"},{item:"Red onion",qty:"1"},{item:"Olive oil",qty:"3 tbsp"},{item:"Chili powder",qty:"1 tsp"},{item:"Cumin",qty:"1 tsp"},{item:"Garlic powder",qty:"1 tsp"},{item:"Flour tortillas",qty:"8"},{item:"Lime",qty:"2"}]},
+  "Slow Cooker Beef Barbacoa":{tags:["mexican","recommended","meal-prep","high-protein"],time:"8h slow cook",serves:6,cost:15,recipe:"https://www.budgetbytes.com/slow-cooker-beef-barbacoa/",ingredients:[{item:"Chuck roast",qty:"3 lbs"},{item:"Chipotle peppers in adobo",qty:"2 peppers"},{item:"Lime juice",qty:"1/4 cup"},{item:"Garlic cloves",qty:"4"},{item:"Cumin",qty:"1 tbsp"},{item:"Beef broth",qty:"1/2 cup"},{item:"Flour tortillas",qty:"12"},{item:"White onion",qty:"1"},{item:"Cilantro",qty:"1 bunch"}]},
+  "Slow Cooker White Chicken Chili":{tags:["comfort","recommended","soup","high-protein","meal-prep"],time:"6h slow cook",serves:6,cost:11,recipe:"https://www.skinnytaste.com/slow-cooker-white-chicken-chili/",ingredients:[{item:"Chicken breast",qty:"1.5 lbs"},{item:"White beans canned",qty:"2 cans"},{item:"Green chiles canned",qty:"2 cans"},{item:"Chicken broth",qty:"2 cups"},{item:"Onion",qty:"1"},{item:"Garlic cloves",qty:"3"},{item:"Cumin",qty:"2 tsp"},{item:"Cream cheese",qty:"4 oz"},{item:"Shredded cheese",qty:"1 cup"}]},
+  "Spaghetti":{tags:["italian","comfort","family-favorite","budget"],time:"30 min",serves:6,cost:9,ingredients:[{item:"Ground beef or turkey",qty:"1.5 lbs"},{item:"Spaghetti pasta",qty:"1 lb"},{item:"Marinara sauce jarred",qty:"1 jar"},{item:"Garlic cloves",qty:"3"},{item:"Parmesan cheese",qty:"1/2 cup"},{item:"Italian seasoning",qty:"1 tsp"},{item:"French bread",qty:"1 loaf"}]},
+  "Steak":{tags:["american","grilling","high-protein","special"],time:"20 min",serves:4,cost:28,ingredients:[{item:"NY Strip or Ribeye steaks",qty:"4 pieces"},{item:"Butter",qty:"3 tbsp"},{item:"Garlic cloves",qty:"3"},{item:"Fresh rosemary or thyme",qty:"2 sprigs"},{item:"Kosher salt",qty:"2 tsp"},{item:"Black pepper",qty:"1 tsp"},{item:"Russet potatoes",qty:"3 large"}]},
+  "Taco Skillet":{tags:["mexican","one-pan","quick","budget"],time:"25 min",serves:4,cost:10,ingredients:[{item:"Ground beef or turkey",qty:"1.5 lbs"},{item:"Taco seasoning",qty:"1 packet"},{item:"Black beans canned",qty:"1 can"},{item:"Corn canned",qty:"1 can"},{item:"Diced tomatoes canned",qty:"1 can"},{item:"Shredded cheese",qty:"1 cup"},{item:"Rice",qty:"1 cup"}]},
+  "Tacos Ground Beef":{tags:["mexican","family-favorite","quick","budget"],time:"25 min",serves:4,cost:10,ingredients:[{item:"Ground beef 80/20",qty:"1.5 lbs"},{item:"Taco seasoning",qty:"2 packets"},{item:"Taco shells",qty:"12"},{item:"Shredded cheese",qty:"1.5 cups"},{item:"Lettuce",qty:"1 head"},{item:"Tomatoes",qty:"2"},{item:"Sour cream",qty:"1/2 cup"},{item:"Salsa",qty:"1 cup"}]},
+  "Teriyaki Salmon Bowls":{tags:["asian","recommended","seafood","healthy","high-protein"],time:"25 min",serves:4,cost:20,recipe:"https://www.skinnytaste.com/teriyaki-salmon-rice-bowls/",ingredients:[{item:"Salmon fillets",qty:"4 pieces"},{item:"Teriyaki sauce",qty:"1/2 cup"},{item:"White or brown rice",qty:"2 cups"},{item:"Broccoli florets",qty:"2 cups"},{item:"Avocado",qty:"1"},{item:"Sesame seeds",qty:"1 tbsp"},{item:"Green onions",qty:"3"}]},
+  "Tri-Tip Mashed Potatoes Chimichurri":{tags:["american","special","grilling"],time:"45 min",serves:6,cost:22,ingredients:[{item:"Tri-tip roast",qty:"2.5 lbs"},{item:"Russet potatoes",qty:"4 large"},{item:"Butter",qty:"4 tbsp"},{item:"Heavy cream",qty:"1/2 cup"},{item:"Fresh parsley",qty:"1 bunch"},{item:"Garlic cloves",qty:"4"},{item:"Red wine vinegar",qty:"2 tbsp"},{item:"Olive oil",qty:"1/2 cup"},{item:"Dinner rolls",qty:"8"},{item:"Carrots",qty:"1 lb"}]},
+  "Turkey Burritos":{tags:["mexican","high-protein","budget"],time:"25 min",serves:4,cost:11,ingredients:[{item:"Ground turkey",qty:"1.5 lbs"},{item:"Large flour tortillas",qty:"4"},{item:"Brown rice cooked",qty:"2 cups"},{item:"Black beans canned",qty:"1 can"},{item:"Shredded cheese",qty:"1 cup"},{item:"Salsa",qty:"1 cup"},{item:"Taco seasoning",qty:"1 packet"}]},
+  "Turkey Quesadillas":{tags:["mexican","budget","quick","family-favorite"],time:"20 min",serves:4,cost:9,ingredients:[{item:"Ground turkey",qty:"1 lb"},{item:"Large flour tortillas",qty:"6"},{item:"Shredded Mexican cheese",qty:"1.5 cups"},{item:"Bell pepper",qty:"1"},{item:"Onion",qty:"1/2"},{item:"Taco seasoning",qty:"1 packet"},{item:"Sour cream",qty:"1/2 cup"},{item:"Salsa",qty:"1/2 cup"}]},
+  "Turkey Taco Soup":{tags:["mexican","recommended","soup","budget","high-protein"],time:"30 min",serves:6,cost:10,recipe:"https://www.skinnytaste.com/taco-soup/",ingredients:[{item:"Ground turkey",qty:"1.5 lbs"},{item:"Black beans canned",qty:"1 can"},{item:"Kidney beans canned",qty:"1 can"},{item:"Corn canned",qty:"1 can"},{item:"Diced tomatoes canned",qty:"1 can"},{item:"Chicken broth",qty:"2 cups"},{item:"Taco seasoning",qty:"1 packet"},{item:"Shredded cheese",qty:"1 cup"},{item:"Sour cream",qty:"1/2 cup"}]},
+  "Turkey Wraps":{tags:["quick","budget","healthy","no-cook"],time:"10 min",serves:4,cost:9,ingredients:[{item:"Deli turkey",qty:"1/2 lb"},{item:"Large flour tortillas",qty:"4"},{item:"Lettuce",qty:"1 head"},{item:"Tomatoes",qty:"2"},{item:"Avocado",qty:"1"},{item:"Provolone cheese",qty:"4 slices"},{item:"Hummus or ranch",qty:"1/4 cup"}]},
+  "Wings and Sliders":{tags:["american","fun","family-favorite"],time:"45 min",serves:4,cost:16,ingredients:[{item:"Chicken wings",qty:"2 lbs"},{item:"Ground beef slider patties",qty:"1 lb"},{item:"Slider buns",qty:"8"},{item:"Buffalo sauce",qty:"1 cup"},{item:"Butter",qty:"3 tbsp"},{item:"Ranch or blue cheese",qty:"1/2 cup"},{item:"American cheese slices",qty:"8"}]}
+};
+
+var COSTCO_ITEMS=[
+  {category:"🍚 Grains & Pasta",items:[{item:"White rice (25 lb bag)",why:"Teriyaki, bulgogi, stir fry, Korean bowl, fried rice"},{item:"Brown rice (25 lb bag)",why:"Chicken bowls, salmon bowls, turkey burritos"},{item:"Spaghetti / pasta variety pack",why:"Spaghetti, lasagna, alfredo, stroganoff"},{item:"Lasagna noodles",why:"Lasagna and lasagna soup"},{item:"Egg noodles",why:"Beef stroganoff and chicken soup"},{item:"Panko breadcrumbs (large bag)",why:"Baked chicken tenders"}]},
+  {category:"🥫 Canned & Jarred",items:[{item:"Chicken broth (6-pack)",why:"Soups, arroz con pollo, white chicken chili, carnita soup"},{item:"Beef broth (4-pack)",why:"Stroganoff, lasagna soup, barbacoa"},{item:"Canned black beans (8-pack)",why:"Taco skillet, burritos, bowls, nachos, taco soup"},{item:"Canned diced tomatoes (8-pack)",why:"Spaghetti, lasagna soup, taco skillet, zucchini skillet"},{item:"Canned corn (8-pack)",why:"Taco skillet, taco soup, calabasitas"},{item:"Marinara sauce (2 large jars)",why:"Spaghetti, lasagna, lasagna soup, alfredo"},{item:"Canned kidney beans (6-pack)",why:"Turkey taco soup"},{item:"Tomato soup (6-pack)",why:"Grilled cheese and tomato soup"},{item:"Canned chili (6-pack)",why:"Chili dogs"}]},
+  {category:"🧂 Pantry Staples & Seasonings",items:[{item:"Olive oil (2L bottle)",why:"Used in nearly every meal"},{item:"Soy sauce (2-bottle pack)",why:"Teriyaki, bulgogi, stir fry, fried rice, Korean bowl"},{item:"Sesame oil (large bottle)",why:"All Asian dishes"},{item:"Taco seasoning (large shaker)",why:"Tacos, burritos, quesadillas, skillet, nachos, soup"},{item:"Italian seasoning (large shaker)",why:"Spaghetti, lasagna, pizza, alfredo"},{item:"Cumin (large shaker)",why:"All Mexican dishes, arroz con pollo, chicken bowl"},{item:"Garlic powder (large shaker)",why:"Sheet pan fajitas, salmon, chicken tenders"},{item:"Paprika (large shaker)",why:"Chicken tenders, salmon, lemon herb chicken"},{item:"Chili powder (large shaker)",why:"Sheet pan fajitas, black bean tacos, chicken bowl"},{item:"Brown sugar (large bag)",why:"Bulgogi, huli huli chicken, barbacoa"},{item:"Cornstarch (large bag)",why:"Beef and broccoli, thickening sauces"},{item:"All-purpose flour (large bag)",why:"Chicken sandwich breading"},{item:"Kosher salt (large container)",why:"Every meal"},{item:"Black pepper (large shaker)",why:"Every meal"}]},
+  {category:"🫙 Sauces & Condiments",items:[{item:"Teriyaki sauce (large bottle)",why:"Chicken teriyaki, teriyaki salmon bowls"},{item:"Ketchup (2-pack)",why:"Huli huli chicken, sliders, hamburgers"},{item:"Salsa (large jar)",why:"Tacos, burritos, quesadillas, nachos, chicken bowl"},{item:"Ranch dressing (large bottle)",why:"Wings, chicken tenders, wraps"},{item:"Hot sauce (large bottle)",why:"Wings, chicken sandwich, general use"}]},
+  {category:"🌮 Tortillas & Bread (Freeze Half)",items:[{item:"Flour tortillas (40-count pack)",why:"Tacos, burritos, quesadillas, fajitas — freeze half"},{item:"Corn tortillas (80-count pack)",why:"Fish tacos, enchiladas — freeze half"},{item:"Hamburger buns (multi-pack)",why:"Hamburgers — freeze extras"},{item:"Hot dog buns (multi-pack)",why:"Chili dogs — freeze extras"}]},
+  {category:"🧻 Household Essentials",items:[{item:"Gallon Ziploc freezer bags (2-box pack)",why:"Portioning and labeling proteins"},{item:"Quart Ziploc bags (2-box pack)",why:"Marinades, small portion storage"},{item:"Heavy duty aluminum foil (2-roll pack)",why:"Sheet pan meals, wrapping meats"},{item:"Parchment paper (large roll)",why:"Sheet pan fajitas, chicken tenders"},{item:"Plastic wrap (large roll)",why:"Marinating meats, storing leftovers"}]}
+];
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+var meals=JSON.parse(JSON.stringify(INIT_MEALS));
+var plan={},checked={},overrides={},extras=[];
+var activeTab="planner",activeTag="all",gView="by-meal";
+var search="",editKey=null,loadedRot=null;
+var scriptUrl=localStorage.getItem("mpUrl")||"";
+var editingMeal=null,editMealData=null;
+var showAddForm=false,newMealData={name:"",time:"",serves:"",cost:"",tags:"",recipe:"",ings:[{item:"",qty:""}]};
+var showExtra=false,extraItem={item:"",qty:""};
+var formErr="",copied=false,syncCls="warn",syncTxt="Not connected";
+
+// ── DOM HELPERS ────────────────────────────────────────────────────────────
+function el(tag,props,children){
+  var e=document.createElement(tag);
+  if(props)Object.keys(props).forEach(function(k){
+    if(k==="style"&&typeof props[k]==="object"){Object.assign(e.style,props[k]);}
+    else if(k==="className"){e.className=props[k];}
+    else if(k.startsWith("on")&&typeof props[k]==="function"){e.addEventListener(k.slice(2).toLowerCase(),props[k]);}
+    else{try{e[k]=props[k];}catch(ex){}}
+  });
+  if(children!==undefined&&children!==null){
+    (Array.isArray(children)?children:[children]).forEach(function(c){
+      if(c===null||c===undefined||c===false)return;
+      if(typeof c==="string"||typeof c==="number")e.appendChild(document.createTextNode(String(c)));
+      else if(c instanceof Node)e.appendChild(c);
+    });
+  }
+  return e;
+}
+function div(style,children){
+  var e=document.createElement("div");
+  if(style&&typeof style==="object"){Object.assign(e.style,style);}
+  if(children!==undefined&&children!==null){
+    (Array.isArray(children)?children:[children]).forEach(function(c){
+      if(c===null||c===undefined||c===false)return;
+      if(typeof c==="string"||typeof c==="number")e.appendChild(document.createTextNode(String(c)));
+      else if(c instanceof Node)e.appendChild(c);
+    });
+  }
+  return e;
+}
+function btn(cls,txt,fn,extraStyle){
+  var b=el("button",{className:"btn "+cls,onClick:fn},txt);
+  if(extraStyle)Object.assign(b.style,extraStyle);
+  return b;
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+function getWeekDates(){
+  var today=new Date(),day=today.getDay(),sun=new Date(today);
+  sun.setDate(today.getDate()-day);
+  return DAYS.map(function(_,i){var d=new Date(sun);d.setDate(sun.getDate()+i);return d;});
+}
+function fmtDate(d){return d.toLocaleDateString("en-US",{month:"short",day:"numeric"});}
+function fmtWeek(dates){
+  return "Week of "+dates[0].toLocaleDateString("en-US",{month:"short",day:"numeric"})+" - "+dates[6].toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
+}
+function colorMap(){
+  var m={},i=0;
+  Object.values(plan).filter(Boolean).forEach(function(n){if(!m[n])m[n]=COLORS[i++%COLORS.length];});
+  return m;
+}
+function plannedMeals(){
+  var seen={},out=[];
+  Object.values(plan).filter(Boolean).forEach(function(n){if(!seen[n]){seen[n]=1;out.push(n);}});
+  return out;
+}
+function filteredMeals(){
+  return Object.keys(meals).filter(function(n){
+    var v=meals[n];
+    return (activeTag==="all"||(v.tags||[]).indexOf(activeTag)>=0)&&(!search||n.toLowerCase().indexOf(search.toLowerCase())>=0);
+  }).sort(function(a,b){return a.localeCompare(b);});
+}
+function buildCombined(pm,cm){
+  var map={};
+  pm.forEach(function(name){
+    (meals[name]&&meals[name].ingredients||[]).forEach(function(ing){
+      if(ing.item.toLowerCase().indexOf("leftover")>=0)return;
+      var key=name+"::"+ing.item,ov=overrides[key];
+      if(ov&&ov.deleted)return;
+      var di=ov?ov.item:ing.item,dq=ov?ov.qty:ing.qty;
+      if(!map[di])map[di]={qty:dq,sources:[name],key:key};
+      else{map[di].qty+=" + "+dq;map[di].sources.push(name);}
+    });
+  });
+  extras.forEach(function(e){
+    var key="extra::"+e.id;
+    if(!map[e.item])map[e.item]={qty:e.qty,sources:[e.staple?"Staples":"Added manually"],key:key};
+    else{map[e.item].qty+=" + "+e.qty;map[e.item].sources.push(e.staple?"Staples":"Added manually");}
+  });
+  return map;
+}
+
+// ── SYNC ───────────────────────────────────────────────────────────────────
+function setSyncBadge(cls,txt){syncCls=cls;syncTxt=txt;render();}
+async function saveToSheets(){
+  if(!scriptUrl){activeTab="setup";render();return;}
+  setSyncBadge("warn","Saving...");
+  var custom={};Object.keys(meals).forEach(function(k){if(meals[k].custom)custom[k]=meals[k];});
+  try{
+    await fetch(scriptUrl,{method:"POST",body:JSON.stringify({plan:plan,checked:checked,overrides:overrides,extras:extras,custom:custom})});
+    setSyncBadge("ok","Synced "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+  }catch(e){setSyncBadge("err","Sync failed");}
+}
+async function loadFromSheets(url){
+  var u=url||scriptUrl;if(!u)return;
+  setSyncBadge("warn","Loading...");
+  try{
+    var res=await fetch(u+"?t="+Date.now());
+    var txt=await res.text();
+    if(!txt||txt==="{}"||txt===""){setSyncBadge("ok","Connected - no data yet");return;}
+    var d=JSON.parse(txt);
+    if(d.plan)plan=d.plan;
+    if(d.checked)checked=d.checked;
+    if(d.overrides)overrides=d.overrides;
+    if(d.extras)extras=d.extras;
+    if(d.custom)Object.assign(meals,d.custom);
+    setSyncBadge("ok","Loaded "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
+    render();
+  }catch(e){setSyncBadge("err","Load failed - check Setup");}
+}
+
+// ── RENDER ENGINE ──────────────────────────────────────────────────────────
+function renderBadge(){
+  var map={ok:{bg:"#a5d6a7",col:"#1b5e20",icon:"✅"},warn:{bg:"#ffe082",col:"#5d4037",icon:"⚙"},err:{bg:"#ef9a9a",col:"#7f0000",icon:"❌"}};
+  var b=map[syncCls]||map.warn;
+  return el("span",{style:{fontSize:11,padding:"4px 10px",borderRadius:12,fontWeight:700,background:b.bg,color:b.col}},b.icon+" "+syncTxt);
+}
+
+function renderHeader(){
+  var weekDates=getWeekDates();
+  return div({background:"#2e7d32",color:"white",borderRadius:"12px",padding:"14px 18px",marginBottom:"16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"10px"},[
+    div(null,[
+      el("div",{style:{fontWeight:800,fontSize:"20px"}},"🥗 Family Meal Planner"),
+      el("div",{style:{opacity:.85,fontSize:"12px",marginTop:"3px"}},fmtWeek(weekDates)+" · Safeway pickup · Partner sync")
+    ]),
+    div({display:"flex",flexDirection:"column",alignItems:"flex-end",gap:"6px"},[
+      renderBadge(),
+      btn("btn g","💾 Save & Sync",saveToSheets,{fontSize:"12px",padding:"5px 12px"})
+    ])
+  ]);
+}
+
+function renderTabs(){
+  var tabs=[["planner","📅 Plan"],["rotation","🔄 Rotation"],["groceries","🛒 Groceries"],["mymenu","🍽 Menu"],["discover","⭐ Picks"],["costco","🏪 Costco"],["setup","⚙ Setup"]];
+  var wrap=el("div",{className:"tabs"});
+  tabs.forEach(function(t){
+    var b=el("button",{className:"tab"+(activeTab===t[0]?" active":""),onClick:function(){activeTab=t[0];render();}},t[1]);
+    wrap.appendChild(b);
+  });
+  return wrap;
+}
+
+// ── PLANNER ────────────────────────────────────────────────────────────────
+function renderPlanner(){
+  var weekDates=getWeekDates();
+  var cm=colorMap(),fm=filteredMeals();
+  var wrap=div(null);
+  if(loadedRot!==null){
+    var banner=div({background:"#e8f5e9",borderRadius:"10px",padding:"10px 16px",marginBottom:"12px",display:"flex",alignItems:"center",justifyContent:"space-between"},[
+      el("span",{style:{fontSize:"13px"}},"✅ Loaded: "+ROTATIONS[loadedRot].label+" — swap any meal to customize"),
+      btn("","← Rotations",function(){activeTab="rotation";render();},{background:"none",border:"none",color:"#2e7d32",fontWeight:700,cursor:"pointer",fontSize:"13px"})
+    ]);
+    wrap.appendChild(banner);
+  }
+  var tagBar=div({display:"flex",gap:"8px",marginBottom:"12px",flexWrap:"wrap",alignItems:"center"});
+  var si=el("input",{className:"inp",value:search,placeholder:"🔍 Search..."});
+  si.style.width="140px";si.style.flexShrink="0";
+  si.addEventListener("input",function(e){search=e.target.value;render();});
+  tagBar.appendChild(si);
+  var tg=div({display:"flex",gap:"6px",flexWrap:"wrap"});
+  TAGS.forEach(function(t){
+    var active=activeTag===t;
+    var b=el("button",{className:"tag",onClick:function(){activeTag=t;render();}},t==="recommended"?"⭐ rec":t);
+    b.style.background=active?(t==="recommended"?"#e65100":"#2e7d32"):"#eee";
+    b.style.color=active?"white":"#333";
+    tg.appendChild(b);
+  });
+  tagBar.appendChild(tg);
+  wrap.appendChild(tagBar);
+  DAYS.forEach(function(day,idx){
+    var m=plan[day],md=m?meals[m]:null,col=m?cm[m]:null;
+    var d=weekDates[idx],isToday=d.toDateString()===new Date().toDateString();
+    var row=div({background:"white",borderRadius:"10px",padding:"10px 14px",display:"flex",alignItems:"center",gap:"10px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",marginBottom:"8px",borderLeft:"5px solid "+(col||"#e0e0e0")});
+    row.appendChild(div({width:"90px",flexShrink:"0"},[
+      el("div",{style:{fontWeight:700,color:isToday?"#2e7d32":"#333",fontSize:"13px"}},(day==="Sunday"?"🛒 ":"")+day),
+      el("div",{style:{fontSize:"10px",color:isToday?"#2e7d32":"#999",fontWeight:isToday?700:400}},fmtDate(d)+(isToday?" · Today":""))
+    ]));
+    var sel=el("select");
+    sel.style.flex="1";sel.style.padding="7px 10px";sel.style.borderRadius="8px";sel.style.border="1px solid #ddd";sel.style.fontSize="13px";sel.style.background=m?"#f0f7f0":"white";
+    sel.appendChild(el("option",{value:""},"— Pick a meal —"));
+    fm.forEach(function(n){var o=el("option",{value:n},n);if(m===n)o.selected=true;sel.appendChild(o);});
+    sel.addEventListener("change",function(e){plan[day]=e.target.value||undefined;loadedRot=null;render();});
+    row.appendChild(sel);
+    if(md){row.appendChild(div({fontSize:"11px",color:"#666",textAlign:"right",minWidth:"100px",flexShrink:"0"},[document.createTextNode("⏱ "+md.time),el("br"),document.createTextNode("💰 $"+md.cost+" · 👥 "+md.serves)]));}
+    wrap.appendChild(row);
+  });
+  var cost=Object.values(plan).filter(Boolean).reduce(function(s,n){return s+(meals[n]?meals[n].cost:0);},0);
+  if(cost>0){
+    wrap.appendChild(div({background:"#e8f5e9",borderRadius:"10px",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"12px"},[
+      el("span",{style:{fontWeight:700,color:"#2e7d32"}},"Estimated Week Total"),
+      el("span",{style:{fontWeight:800,fontSize:"20px",color:"#2e7d32"}},"$"+cost)
+    ]));
+  }
+  return wrap;
+}
+
+// ── ROTATION ───────────────────────────────────────────────────────────────
+function renderRotation(){
+  var wrap=div(null);
+  wrap.appendChild(div({background:"#fff8e1",borderRadius:"10px",padding:"10px 14px",marginBottom:"12px",fontSize:"13px",color:"#666"},
+    "💡 Click Load This Week to pre-fill your plan, then swap any meals. Hit Save & Sync so your partner sees it."));
+  ROTATIONS.forEach(function(rot,idx){
+    var card=div({background:"white",borderRadius:"12px",overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,.08)",marginBottom:"16px",border:loadedRot===idx?"2px solid #2e7d32":"2px solid transparent"});
+    var hdr=div({background:rot.color,color:"white",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:"10px"},[
+      div(null,[el("div",{style:{fontWeight:800,fontSize:"15px"}},rot.label),el("div",{style:{fontSize:"12px",opacity:.85,marginTop:"2px"}},"💡 "+rot.note)]),
+      btn("btn",loadedRot===idx?"✓ Loaded":"Load This Week →",function(){Object.assign(plan,rot.plan);loadedRot=idx;overrides={};extras=[];checked={};activeTab="planner";render();},{background:"white",color:rot.color,flexShrink:0})
+    ]);
+    card.appendChild(hdr);
+    DAYS.forEach(function(day,di){
+      var mn=rot.plan[day],md=mn?meals[mn]:null;
+      card.appendChild(div({display:"flex",alignItems:"center",padding:"9px 18px",borderBottom:di<6?"1px solid #f5f5f5":"none",background:di%2===0?"#fafafa":"white"},[
+        el("div",{style:{width:"96px",fontWeight:700,fontSize:"13px",color:"#444",flexShrink:0}},(day==="Sunday"?"🛒 ":"")+day),
+        el("div",{style:{flex:1,fontSize:"13px",color:mn?"#222":"#aaa"}},mn||"—"),
+        md?el("div",{style:{fontSize:"11px",color:"#888",flexShrink:0}},md.time+" · $"+md.cost):null
+      ]));
+    });
+    var est=Object.values(rot.plan).reduce(function(s,n){return s+(meals[n]?meals[n].cost:0);},0);
+    card.appendChild(div({padding:"10px 18px",background:"#f9f9f7",textAlign:"right",fontSize:"12px",color:"#888"},[document.createTextNode("Est. total: "),el("strong",{style:{color:"#2e7d32"}},"$"+est)]));
+    wrap.appendChild(card);
+  });
+  return wrap;
+}
+
+// ── INGREDIENT ROW ─────────────────────────────────────────────────────────
+function renderIngRow(key,item,qty,color){
+  var isChecked=!!checked[key];
+  var row=div({display:"flex",alignItems:"center",padding:"8px 14px",borderBottom:"1px solid #f5f5f5",gap:"8px",background:isChecked?"#fafafa":"white"});
+  var chk=div({width:"20px",height:"20px",borderRadius:"4px",border:"2px solid "+(isChecked?color:"#ddd"),background:isChecked?color:"white",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0",cursor:"pointer"},
+    isChecked?el("span",{style:{color:"white",fontSize:"12px",fontWeight:900}},"✓"):null);
+  chk.addEventListener("click",function(){checked[key]=!checked[key];render();});
+  row.appendChild(chk);
+  if(editKey===key){
+    var ni=el("input",{className:"einp",value:item});ni.style.flex="2";
+    var qi=el("input",{className:"einp",value:qty});qi.style.flex="1";qi.style.minWidth="70px";
+    row.appendChild(ni);row.appendChild(qi);
+    row.appendChild(btn("btn g","✓",function(){
+      var nv=ni.value.trim(),qv=qi.value.trim();
+      if(!nv){editKey=null;render();return;}
+      if(key.indexOf("extra::")===0){var id=key.replace("extra::","");extras=extras.map(function(e2){return e2.id===id?Object.assign({},e2,{item:nv,qty:qv}):e2;});}
+      else overrides[key]={item:nv,qty:qv};
+      editKey=null;render();
+    },{fontSize:"12px",padding:"3px 10px"}));
+    row.appendChild(btn("btn gr","✕",function(){editKey=null;render();},{fontSize:"12px",padding:"3px 8px"}));
+  } else {
+    row.appendChild(el("span",{style:{flex:2,fontSize:"14px",textDecoration:isChecked?"line-through":"none",color:isChecked?"#aaa":"#333"}},item));
+    row.appendChild(el("span",{style:{flex:1,fontSize:"13px",fontWeight:600,color:isChecked?"#bbb":"#555",minWidth:"60px"}},qty));
+    var eb=el("button",{style:{background:"none",border:"none",cursor:"pointer",fontSize:"14px",padding:"2px 4px"}},"✏️");
+    var db=el("button",{style:{background:"none",border:"none",cursor:"pointer",fontSize:"14px",padding:"2px 4px"}},"🗑");
+    eb.addEventListener("click",function(){editKey=key;render();});
+    db.addEventListener("click",function(){
+      if(key.indexOf("extra::")===0){var id=key.replace("extra::","");extras=extras.filter(function(e2){return e2.id!==id;});}
+      else overrides[key]=Object.assign(overrides[key]||{},{deleted:true});
+      delete checked[key];render();
+    });
+    row.appendChild(eb);row.appendChild(db);
+  }
+  return row;
+}
+
+// ── GROCERIES ──────────────────────────────────────────────────────────────
+function renderGroceries(){
+  var pm=plannedMeals();
+  var cm=colorMap();
+  var wrap=div(null);
+
+  // STAPLES PANEL - always visible
+  var sCard=div({background:"white",borderRadius:"10px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",marginBottom:"14px",overflow:"hidden"});
+  sCard.appendChild(div({background:"#2e7d32",color:"white",padding:"9px 16px",fontWeight:700,fontSize:"14px"},"⚡ Quick-Add Staples"));
+  var sInner=div({padding:"12px 16px"});
+  sInner.appendChild(el("div",{style:{fontSize:"12px",color:"#666",marginBottom:"10px"}},"Tap to add your regular weekly items. Disappears once added."));
+  var anyAvailable=false;
+  STAPLE_ORDER.forEach(function(cat){
+    var items=STAPLE_CATEGORIES[cat];
+    var available=items.filter(function(s){
+      return !extras.some(function(e){return e.item.toLowerCase()===s.toLowerCase();});
+    });
+    if(!available.length)return;
+    anyAvailable=true;
+    var catWrap=div({marginBottom:"10px"});
+    catWrap.appendChild(el("div",{style:{fontSize:"11px",fontWeight:700,color:"#888",marginBottom:"5px",textTransform:"uppercase",letterSpacing:"0.5px"}},cat));
+    var btnRow=div({display:"flex",flexWrap:"wrap",gap:"6px"});
+    available.forEach(function(s){
+      var b=btn("btn o",s,function(){
+        extras.push({id:Date.now().toString(),item:s,qty:"1",staple:true});
+        render();
+      },{fontSize:"11px",padding:"4px 10px"});
+      btnRow.appendChild(b);
+    });
+    catWrap.appendChild(btnRow);
+    sInner.appendChild(catWrap);
+  });
+  if(!anyAvailable){
+    sInner.appendChild(el("div",{style:{fontSize:"13px",color:"#2e7d32",fontStyle:"italic"}},"✅ All staples added to your list!"));
+  }
+  sCard.appendChild(sInner);
+  wrap.appendChild(sCard);
+
+  // NO MEALS SELECTED
+  if(!pm.length){
+    wrap.appendChild(div({textAlign:"center",padding:"30px",color:"#888"},[
+      el("div",{style:{fontSize:"32px",marginBottom:"8px"}},"🛒"),
+      el("p",null,"Select meals in the Plan tab to generate your ingredient list.")
+    ]));
+    return wrap;
+  }
+
+  // MEAL COLOR KEY
+  var keyCard=div({background:"white",borderRadius:"10px",padding:"12px 16px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",marginBottom:"12px"});
+  keyCard.appendChild(el("div",{style:{fontSize:"12px",fontWeight:700,color:"#555",marginBottom:"8px"}},"THIS WEEK'S MEALS"));
+  var kd=div({display:"flex",flexWrap:"wrap",gap:"8px"});
+  pm.forEach(function(n){
+    kd.appendChild(div({display:"flex",alignItems:"center",gap:"6px",background:"#f5f5f5",borderRadius:"20px",padding:"4px 12px"},[
+      div({width:"10px",height:"10px",borderRadius:"50%",background:cm[n],flexShrink:"0"}),
+      el("span",{style:{fontSize:"12px",fontWeight:600}},n)
+    ]));
+  });
+  keyCard.appendChild(kd);
+  wrap.appendChild(keyCard);
+
+  // TOOLBAR
+  var tb=div({display:"flex",gap:"8px",flexWrap:"wrap",alignItems:"center",marginBottom:"10px"});
+  var vt=el("div",{className:"vt"});
+  vt.appendChild(el("button",{className:"vbtn"+(gView==="by-meal"?" on":""),onClick:function(){gView="by-meal";render();}},"By Meal"));
+  vt.appendChild(el("button",{className:"vbtn"+(gView==="combined"?" on":""),onClick:function(){gView="combined";render();}},"Combined"));
+  tb.appendChild(vt);
+  var copyB=btn("btn g",copied?"✓ Copied!":"📋 Copy Unchecked",function(){
+    var combined=buildCombined(pm,cm);
+    var lines=Object.keys(combined).filter(function(item){return !checked[combined[item].key];}).map(function(item){return item+": "+combined[item].qty;});
+    navigator.clipboard.writeText(lines.join("\n"));
+    copied=true;render();setTimeout(function(){copied=false;render();},2000);
+  },{background:copied?"#4caf50":"#2e7d32"});
+  tb.appendChild(copyB);
+  tb.appendChild(el("a",{href:"https://www.safeway.com",target:"_blank",className:"btn r"},"🛍 Safeway →"));
+  tb.appendChild(btn("btn o","+ Add Item",function(){showExtra=true;render();}));
+  var numChecked=Object.values(checked).filter(Boolean).length;
+  var numDeleted=Object.values(overrides).filter(function(v){return v.deleted;}).length;
+  if(numChecked>0)tb.appendChild(btn("btn","↺ Uncheck All",function(){checked={};render();},{background:"#fff3e0",color:"#e65100",border:"1px solid #e65100"}));
+  if(numDeleted>0)tb.appendChild(btn("btn","↺ Restore ("+numDeleted+")",function(){overrides={};render();},{background:"#fce4ec",color:"#c62828",border:"1px solid #c62828"}));
+  wrap.appendChild(tb);
+  wrap.appendChild(el("div",{style:{fontSize:"12px",color:"#888",marginBottom:"10px"}},"✅ Check items you have · ✏️ Edit · 🗑 Remove · + Add Item for extras"));
+
+  // ADD EXTRA BAR
+  if(showExtra){
+    var eb=div({background:"white",borderRadius:"10px",padding:"12px 16px",marginBottom:"12px",border:"2px dashed #2e7d32",display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap"});
+    eb.appendChild(el("span",{style:{fontSize:"13px",fontWeight:700,color:"#2e7d32",flexShrink:0}},"➕ Add:"));
+    var en=el("input",{className:"einp",value:extraItem.item,placeholder:"Item name"});en.style.flex="2";en.style.minWidth="130px";
+    en.addEventListener("input",function(e){extraItem.item=e.target.value;});
+    en.addEventListener("keydown",function(e){if(e.key==="Enter")doAddExtra();});
+    var eq=el("input",{className:"einp",value:extraItem.qty,placeholder:"Qty"});eq.style.flex="1";eq.style.minWidth="70px";
+    eq.addEventListener("input",function(e){extraItem.qty=e.target.value;});
+    eq.addEventListener("keydown",function(e){if(e.key==="Enter")doAddExtra();});
+    eb.appendChild(en);eb.appendChild(eq);
+    eb.appendChild(btn("btn g","Add",doAddExtra));
+    eb.appendChild(btn("btn gr","Cancel",function(){showExtra=false;extraItem={item:"",qty:""};render();}));
+    wrap.appendChild(eb);
+  }
+
+  // BY MEAL VIEW
+  if(gView==="by-meal"){
+    pm.forEach(function(name){
+      var color=cm[name];
+      var ings=(meals[name]&&meals[name].ingredients||[]).filter(function(i){return i.item.toLowerCase().indexOf("leftover")<0;}).map(function(ing){
+        var key=name+"::"+ing.item,ov=overrides[key];
+        return {key:key,item:ov?ov.item:ing.item,qty:ov?ov.qty:ing.qty,deleted:ov&&ov.deleted};
+      }).filter(function(i){return !i.deleted;});
+      var sec=div({background:"white",borderRadius:"10px",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.07)",marginBottom:"12px"});
+      sec.appendChild(div({background:color,color:"white",padding:"9px 16px",fontWeight:700,fontSize:"14px",display:"flex",alignItems:"center",gap:"8px"},[
+        document.createTextNode("🍽 "+name),
+        el("span",{style:{marginLeft:"auto",fontWeight:400,fontSize:"12px",opacity:.85}},ings.length+" items")
+      ]));
+      ings.forEach(function(i){sec.appendChild(renderIngRow(i.key,i.item,i.qty,color));});
+      wrap.appendChild(sec);
+    });
+    // STAPLES SECTION
+    var stapleExtras=extras.filter(function(e){return e.staple;});
+    var manualExtras=extras.filter(function(e){return !e.staple;});
+    if(stapleExtras.length>0){
+      var ssec=div({background:"white",borderRadius:"10px",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.07)",marginBottom:"12px"});
+      ssec.appendChild(div({background:"#558b2f",color:"white",padding:"9px 16px",fontWeight:700,fontSize:"14px"},"🛒 Weekly Staples"));
+      STAPLE_ORDER.forEach(function(cat){
+        var catItems=stapleExtras.filter(function(e){
+          return STAPLE_CATEGORIES[cat]&&STAPLE_CATEGORIES[cat].some(function(s){return s.toLowerCase()===e.item.toLowerCase();});
+        });
+        if(!catItems.length)return;
+        ssec.appendChild(div({background:"#f1f8e9",padding:"4px 14px",fontSize:"11px",fontWeight:700,color:"#558b2f",textTransform:"uppercase",letterSpacing:"0.5px"},cat));
+        catItems.forEach(function(e){ssec.appendChild(renderIngRow("extra::"+e.id,e.item,e.qty,"#558b2f"));});
+      });
+      var unknownStaples=stapleExtras.filter(function(e){
+        return !STAPLE_ORDER.some(function(cat){return STAPLE_CATEGORIES[cat]&&STAPLE_CATEGORIES[cat].some(function(s){return s.toLowerCase()===e.item.toLowerCase();});});
+      });
+      unknownStaples.forEach(function(e){ssec.appendChild(renderIngRow("extra::"+e.id,e.item,e.qty,"#558b2f"));});
+      wrap.appendChild(ssec);
+    }
+    if(manualExtras.length>0){
+      var esec=div({background:"white",borderRadius:"10px",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.07)",marginBottom:"12px"});
+      esec.appendChild(div({background:"#37474f",color:"white",padding:"9px 16px",fontWeight:700,fontSize:"14px"},"➕ Manually Added"));
+      manualExtras.forEach(function(e){esec.appendChild(renderIngRow("extra::"+e.id,e.item,e.qty,"#37474f"));});
+      wrap.appendChild(esec);
+    }
+  }
+
+  // COMBINED VIEW
+  if(gView==="combined"){
+    var combined=buildCombined(pm,cm);
+    var csec=div({background:"white",borderRadius:"10px",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.07)"});
+    var ckeys=Object.keys(combined),clen=ckeys.length;
+    ckeys.forEach(function(item,ci){
+      var d=combined[item],isChecked=!!checked[d.key];
+      var row=div({display:"flex",alignItems:"center",padding:"9px 14px",borderBottom:ci<clen-1?"1px solid #f5f5f5":"none",background:isChecked?"#fafafa":"white",gap:"8px"});
+      var chk=div({width:"20px",height:"20px",borderRadius:"4px",border:"2px solid "+(isChecked?"#2e7d32":"#ddd"),background:isChecked?"#2e7d32":"white",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:"0",cursor:"pointer"},
+        isChecked?el("span",{style:{color:"white",fontSize:"12px",fontWeight:900}},"✓"):null);
+      chk.addEventListener("click",function(){checked[d.key]=!checked[d.key];render();});
+      row.appendChild(chk);
+      if(editKey===d.key){
+        var ni2=el("input",{className:"einp",value:item});ni2.style.flex="2";
+        var qi2=el("input",{className:"einp",value:d.qty});qi2.style.flex="1";qi2.style.minWidth="70px";
+        row.appendChild(ni2);row.appendChild(qi2);
+        row.appendChild(btn("btn g","✓",function(){
+          var nv=ni2.value.trim(),qv=qi2.value.trim();
+          if(!nv){editKey=null;render();return;}
+          if(d.key.indexOf("extra::")===0){var id=d.key.replace("extra::","");extras=extras.map(function(e2){return e2.id===id?Object.assign({},e2,{item:nv,qty:qv}):e2;});}
+          else overrides[d.key]={item:nv,qty:qv};
+          editKey=null;render();
+        },{fontSize:"12px",padding:"3px 10px"}));
+        row.appendChild(btn("btn gr","✕",function(){editKey=null;render();},{fontSize:"12px",padding:"3px 8px"}));
+      } else {
+        var inner=div({flex:1});
+        inner.appendChild(el("div",{style:{fontSize:"14px",textDecoration:isChecked?"line-through":"none",color:isChecked?"#aaa":"#333"}},item));
+        var srcs=div({display:"flex",gap:"4px",marginTop:"3px",flexWrap:"wrap"});
+        var uniqSrc=[];
+        d.sources.forEach(function(s){if(uniqSrc.indexOf(s)<0)uniqSrc.push(s);});
+        uniqSrc.forEach(function(mn){
+          var chip=div({display:"inline-flex",alignItems:"center",gap:"3px",background:"#f5f5f5",borderRadius:"10px",padding:"1px 7px"});
+          if(cm[mn])chip.appendChild(div({width:"7px",height:"7px",borderRadius:"50%",background:cm[mn],flexShrink:"0"}));
+          chip.appendChild(el("span",{style:{fontSize:"10px",color:"#666"}},mn));
+          srcs.appendChild(chip);
+        });
+        inner.appendChild(srcs);
+        row.appendChild(inner);
+        row.appendChild(el("span",{style:{fontSize:"13px",fontWeight:600,color:isChecked?"#bbb":"#555",flexShrink:"0"}},d.qty));
+        var eb2=el("button",{style:{background:"none",border:"none",cursor:"pointer",fontSize:"14px",padding:"2px 4px"}},"✏️");
+        var db2=el("button",{style:{background:"none",border:"none",cursor:"pointer",fontSize:"14px",padding:"2px 4px"}},"🗑");
+        eb2.addEventListener("click",function(){editKey=d.key;render();});
+        db2.addEventListener("click",function(){
+          if(d.key.indexOf("extra::")===0){var id=d.key.replace("extra::","");extras=extras.filter(function(e2){return e2.id!==id;});}
+          else overrides[d.key]=Object.assign(overrides[d.key]||{},{deleted:true});
+          delete checked[d.key];render();
+        });
+        row.appendChild(eb2);row.appendChild(db2);
+      }
+      csec.appendChild(row);
+    });
+    wrap.appendChild(csec);
+  }
+
+  wrap.appendChild(el("div",{style:{marginTop:"10px",fontSize:"12px",color:"#999",textAlign:"right"}},
+    Object.keys(buildCombined(pm,cm)).length+" items · "+Object.values(checked).filter(Boolean).length+" on hand · "+Object.values(overrides).filter(function(v){return v.deleted;}).length+" removed"));
+  return wrap;
+}
+
+function doAddExtra(){
+  if(!extraItem.item.trim())return;
+  extras.push({id:Date.now().toString(),item:extraItem.item.trim(),qty:extraItem.qty.trim()||"1"});
+  showExtra=false;extraItem={item:"",qty:""};render();
+}
+
+// ── MEAL FORM ──────────────────────────────────────────────────────────────
+function renderMealForm(isEdit){
+  var data=isEdit?editMealData:newMealData;
+  var wrap=div({background:"white",borderRadius:"12px",padding:"20px",marginBottom:"16px",boxShadow:"0 2px 12px rgba(0,0,0,.12)",border:"2px solid #2e7d32"});
+  wrap.appendChild(el("h3",{style:{fontSize:"16px",color:"#2e7d32",marginBottom:"14px"}},isEdit?"✏️ Editing: "+editingMeal:"➕ Add New Meal"));
+  var grid=div({display:"grid",gap:"10px"});
+  var nf=div(null);nf.appendChild(el("label",null,"Meal Name *"));
+  var ni=el("input",{className:"inp",value:data.name||"",placeholder:"e.g. Chicken Alfredo Bake"});
+  ni.addEventListener("input",function(e){data.name=e.target.value;});nf.appendChild(ni);grid.appendChild(nf);
+  var g3=div({className:"g3"});
+  [{f:"time",l:"Cook Time",p:"30 min"},{f:"serves",l:"Serves",p:"4"},{f:"cost",l:"Est. Cost ($)",p:"12"}].forEach(function(x){
+    var fd=div(null);fd.appendChild(el("label",null,x.l));
+    var i=el("input",{className:"inp",value:data[x.f]||"",placeholder:x.p});
+    if(x.f==="serves")i.type="number";
+    i.addEventListener("input",function(e){data[x.f]=e.target.value;});fd.appendChild(i);g3.appendChild(fd);
+  });
+  grid.appendChild(g3);
+  var tf=div(null);tf.appendChild(el("label",null,"Tags (comma-separated)"));
+  var ti=el("input",{className:"inp",value:data.tags||"",placeholder:"mexican, quick, budget"});
+  ti.addEventListener("input",function(e){data.tags=e.target.value;});tf.appendChild(ti);grid.appendChild(tf);
+  var rf=div(null);rf.appendChild(el("label",null,"Recipe Link (optional)"));
+  var ri=el("input",{className:"inp",value:data.recipe||"",placeholder:"https://...",type:"url"});
+  ri.addEventListener("input",function(e){data.recipe=e.target.value;});rf.appendChild(ri);grid.appendChild(rf);
+  var ingWrap=div(null);ingWrap.appendChild(el("label",{style:{marginBottom:"6px"}},"Ingredients *"));
+  function rebuildIngs(){
+    var old=ingWrap.querySelector(".ing-rows");if(old)ingWrap.removeChild(old);
+    var rows=el("div",{className:"ing-rows"});
+    data.ings.forEach(function(row,i){
+      var irow=el("div",{className:"irow"});
+      var ii=el("input",{className:"inp",value:row.item||"",placeholder:"Ingredient"});ii.style.flex="3";
+      var qi=el("input",{className:"inp",value:row.qty||"",placeholder:"Qty"});qi.style.flex="1";
+      ii.addEventListener("input",function(e){data.ings[i].item=e.target.value;});
+      qi.addEventListener("input",function(e){data.ings[i].qty=e.target.value;});
+      irow.appendChild(ii);irow.appendChild(qi);
+      if(data.ings.length>1){
+        var rb=el("button",{style:{background:"none",border:"none",color:"#e53935",cursor:"pointer",fontSize:"18px",flexShrink:0}},"✕");
+        rb.addEventListener("click",function(){data.ings=data.ings.filter(function(_,j){return j!==i;});rebuildIngs();});
+        irow.appendChild(rb);
+      }
+      rows.appendChild(irow);
+    });
+    ingWrap.appendChild(rows);
+  }
+  rebuildIngs();
+  ingWrap.appendChild(btn("btn o","+ Add Ingredient",function(){data.ings.push({item:"",qty:""});rebuildIngs();},{fontSize:"13px",marginTop:"6px"}));
+  grid.appendChild(ingWrap);
+  wrap.appendChild(grid);
+  var errP=el("p",{style:{color:"#e53935",fontSize:"13px",marginTop:"8px"}},formErr||"");
+  wrap.appendChild(errP);
+  var btns=div({display:"flex",gap:"10px",marginTop:"14px"});
+  btns.appendChild(btn("btn g",isEdit?"Save Changes":"Save Meal",function(){
+    formErr="";
+    if(!data.name.trim()){formErr="Please enter a meal name.";render();return;}
+    if(!isEdit&&meals[data.name.trim()]){formErr="A meal with that name already exists.";render();return;}
+    if(isEdit&&data.name.trim()!==editingMeal&&meals[data.name.trim()]){formErr="A meal with that name already exists.";render();return;}
+    var ings=data.ings.filter(function(r){return r.item.trim();});
+    if(!ings.length){formErr="Add at least one ingredient.";render();return;}
+    var tags=data.tags?data.tags.split(",").map(function(t){return t.trim().toLowerCase();}).filter(Boolean):[];
+    var isCustom=isEdit?!!meals[editingMeal].custom:true;
+    if(isCustom&&tags.indexOf("custom")<0)tags.push("custom");
+    var updated={tags:tags,time:data.time||"—",serves:Number(data.serves)||4,cost:parseFloat(data.cost)||0,recipe:data.recipe||null,ingredients:ings};
+    if(isCustom)updated.custom=true;
+    if(isEdit){
+      var oldName=editingMeal;
+      meals[data.name.trim()]=Object.assign({},meals[oldName]||{},updated);
+      if(data.name.trim()!==oldName){delete meals[oldName];Object.keys(plan).forEach(function(d){if(plan[d]===oldName)plan[d]=data.name.trim();});}
+      editingMeal=null;editMealData=null;
+    } else {
+      meals[data.name.trim()]=updated;
+      showAddForm=false;newMealData={name:"",time:"",serves:"",cost:"",tags:"",recipe:"",ings:[{item:"",qty:""}]};
+    }
+    render();
+  }));
+  btns.appendChild(btn("btn gr","Cancel",function(){
+    if(isEdit){editingMeal=null;editMealData=null;}
+    else{showAddForm=false;newMealData={name:"",time:"",serves:"",cost:"",tags:"",recipe:"",ings:[{item:"",qty:""}]};}
+    formErr="";render();
+  }));
+  wrap.appendChild(btns);
+  return wrap;
+}
+
+// ── MY MENU ────────────────────────────────────────────────────────────────
+function renderMenu(){
+  var wrap=div(null);
+  wrap.appendChild(div({display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px"},[
+    el("p",{style:{fontSize:"13px",color:"#555"}},"All your meals. Edit or add new ones anytime."),
+    btn("btn g","+ Add Meal",function(){showAddForm=true;formErr="";render();})
+  ]));
+  if(showAddForm)wrap.appendChild(renderMealForm(false));
+  Object.entries(meals).forEach(function(entry){
+    var name=entry[0],data=entry[1];
+    var isCustom=data.custom,isRec=(data.tags||[]).indexOf("recommended")>=0;
+    var card=div({background:"white",borderRadius:"10px",padding:"12px 16px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",marginBottom:"8px",borderLeft:"4px solid "+(isCustom?"#1565c0":isRec?"#e65100":"#2e7d32")});
+    if(editingMeal===name&&editMealData){
+      card.appendChild(renderMealForm(true));
+    } else {
+      var inner=div({display:"flex",justifyContent:"space-between",alignItems:"flex-start"});
+      var left=div({flex:1});
+      left.appendChild(el("div",{style:{fontWeight:700,fontSize:"14px"}},name));
+      left.appendChild(el("div",{style:{fontSize:"12px",color:"#777",marginTop:"2px"}},"⏱ "+data.time+" · 💰 $"+data.cost+" · 👥 "+data.serves));
+      if(data.recipe)left.appendChild(el("a",{href:data.recipe,target:"_blank",style:{fontSize:"12px",color:"#2e7d32",textDecoration:"none",fontWeight:600}},"📖 Recipe →"));
+      inner.appendChild(left);
+      var right=div({display:"flex",gap:"8px",alignItems:"center",flexShrink:"0"});
+      right.appendChild(btn("btn","✏️ Edit",function(){
+        editingMeal=name;
+        var d=meals[name];
+        editMealData={name:name,time:d.time||"",serves:String(d.serves||4),cost:String(d.cost||""),
+          tags:(d.tags||[]).filter(function(t){return t!=="custom";}).join(", "),
+          recipe:d.recipe||"",
+          ings:d.ingredients?d.ingredients.map(function(i){return {item:i.item,qty:i.qty};}): [{item:"",qty:""}]};
+        formErr="";render();
+      },{background:"none",border:"1px solid #2e7d32",color:"#2e7d32",fontSize:"12px",padding:"4px 10px"}));
+      if(isCustom){
+        right.appendChild(btn("btn","Delete",function(){
+          delete meals[name];
+          Object.keys(plan).forEach(function(d){if(plan[d]===name)delete plan[d];});
+          render();
+        },{background:"none",border:"1px solid #e53935",color:"#e53935",fontSize:"12px",padding:"4px 10px"}));
+        right.appendChild(el("span",{style:{background:"#e3f2fd",color:"#1565c0",borderRadius:"12px",padding:"2px 8px",fontSize:"11px",fontWeight:700}},"Custom"));
+      }
+      if(isRec)right.appendChild(el("span",{style:{background:"#fff3e0",color:"#e65100",borderRadius:"12px",padding:"2px 8px",fontSize:"11px",fontWeight:700}},"Rec"));
+      inner.appendChild(right);
+      card.appendChild(inner);
+    }
+    wrap.appendChild(card);
+  });
+  return wrap;
+}
+
+// ── RECOMMENDED ────────────────────────────────────────────────────────────
+function renderDiscover(){
+  var wrap=div(null);
+  wrap.appendChild(el("p",{style:{fontSize:"13px",color:"#555",marginBottom:"16px"}},"Top picks — healthy, budget-friendly, matched to your flavor preferences."));
+  Object.entries(meals).filter(function(e){return (e[1].tags||[]).indexOf("recommended")>=0;}).forEach(function(entry){
+    var name=entry[0],data=entry[1];
+    var card=div({background:"white",borderRadius:"10px",padding:"14px 16px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid #e65100",marginBottom:"12px"});
+    var inner=div({display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:"10px"});
+    var left=div({flex:1});
+    left.appendChild(el("div",{style:{fontWeight:700,fontSize:"15px",marginBottom:"4px"}},name));
+    left.appendChild(el("div",{style:{fontSize:"12px",color:"#666",marginBottom:"6px"}},"⏱ "+data.time+" · 💰 $"+data.cost+" · 👥 serves "+data.serves));
+    var tgs=div({display:"flex",flexWrap:"wrap",gap:"5px",marginBottom:"6px"});
+    (data.tags||[]).filter(function(t){return t!=="recommended";}).forEach(function(t){
+      tgs.appendChild(el("span",{style:{background:"#f0f7f0",color:"#2e7d32",borderRadius:"12px",padding:"2px 8px",fontSize:"11px",fontWeight:600}},t));
+    });
+    left.appendChild(tgs);
+    left.appendChild(el("div",{style:{fontSize:"12px",color:"#777"}},[el("strong",null,"Ingredients: "),document.createTextNode(data.ingredients.map(function(i){return i.item;}).join(", "))]));
+    inner.appendChild(left);
+    if(data.recipe)inner.appendChild(el("a",{href:data.recipe,target:"_blank",className:"btn",style:{background:"#e65100",color:"white",whiteSpace:"nowrap",flexShrink:0,textDecoration:"none"}},"📖 Recipe"));
+    card.appendChild(inner);
+    wrap.appendChild(card);
+  });
+  return wrap;
+}
+
+// ── COSTCO ─────────────────────────────────────────────────────────────────
+function renderCostco(){
+  var wrap=div(null);
+  wrap.appendChild(div({background:"#e8f5e9",borderRadius:"10px",padding:"12px 16px",marginBottom:"14px",borderLeft:"4px solid #2e7d32",fontSize:"13px",color:"#333",lineHeight:"1.8"},
+    "🏪 Costco Non-Perishable Bulk Buys — shelf-stable, high-value items used across almost every meal you cook."));
+  COSTCO_ITEMS.forEach(function(section){
+    var card=div({background:"white",borderRadius:"10px",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.07)",marginBottom:"14px"});
+    card.appendChild(div({background:"#2e7d32",color:"white",padding:"10px 16px",fontWeight:700,fontSize:"14px"},section.category));
+    section.items.forEach(function(it,i){
+      var row=div({display:"flex",alignItems:"flex-start",padding:"10px 16px",borderBottom:i<section.items.length-1?"1px solid #f5f5f5":"none",gap:"12px"});
+      var left=div({flex:1});
+      left.appendChild(el("div",{style:{fontSize:"14px",fontWeight:600,color:"#222"}},it.item));
+      left.appendChild(el("div",{style:{fontSize:"12px",color:"#777",marginTop:"2px"}},"Used in: "+it.why));
+      row.appendChild(left);
+      row.appendChild(el("span",{style:{background:"#e8f5e9",color:"#2e7d32",borderRadius:"12px",padding:"2px 10px",fontSize:"11px",fontWeight:700,flexShrink:0,marginTop:"2px"}},"Bulk Buy"));
+      card.appendChild(row);
+    });
+    wrap.appendChild(card);
+  });
+  wrap.appendChild(div({background:"#fff8e1",borderRadius:"8px",padding:"10px 14px",fontSize:"13px",color:"#666",lineHeight:"1.8"},
+    "💡 Pro tip: Skip fresh produce, dairy, and meat at Costco unless you have freezer space. Focus on pantry staples — save $150-200/month vs Safeway."));
+  return wrap;
+}
+
+// ── SETUP ──────────────────────────────────────────────────────────────────
+function renderSetup(){
+  var wrap=div(null);
+  var box=div({background:"#e3f2fd",borderRadius:"10px",padding:"16px",marginBottom:"16px",borderLeft:"4px solid #1565c0"});
+  box.appendChild(el("h3",{style:{color:"#1565c0",fontSize:"14px",marginBottom:"10px"}},"🔗 Connect to Google Sheets — Step by Step"));
+  var ol=el("ol",{style:{paddingLeft:"18px",fontSize:"13px",color:"#333",lineHeight:"2.2"}});
+  ["Go to sheets.google.com → create a new blank spreadsheet → name it Family Meal Planner",
+   "Click Extensions → Apps Script",
+   "Delete all code → paste the script below → click Save",
+   "Click Deploy → New Deployment → Web App → Who has access: Anyone → Deploy",
+   "Copy the Web App URL → paste below → click Connect"].forEach(function(s){ol.appendChild(el("li",null,s));});
+  box.appendChild(ol);
+  var pre=el("pre",{style:{background:"#1a237e",color:"#e8eaf6",borderRadius:"8px",padding:"12px",fontSize:"11px",lineHeight:"1.6",overflowX:"auto",marginTop:"10px",whiteSpace:"pre-wrap"}});
+  pre.textContent="const SHEET_NAME = 'Plan';\n\nfunction doGet(e) {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);\n  var data = sheet.getRange(1,1,1,1).getValue();\n  return ContentService.createTextOutput(data || '{}').setMimeType(ContentService.MimeType.JSON);\n}\n\nfunction doPost(e) {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);\n  sheet.getRange(1,1,1,1).setValue(e.postData.contents);\n  return ContentService.createTextOutput('ok').setMimeType(ContentService.MimeType.TEXT);\n}";
+  box.appendChild(pre);
+  var urlrow=div({display:"flex",gap:"8px",marginTop:"12px",flexWrap:"wrap",alignItems:"center"});
+  var ui=el("input",{type:"url",className:"inp",value:scriptUrl,placeholder:"Paste your Web App URL here..."});ui.style.flex="1";ui.style.minWidth="200px";
+  ui.addEventListener("input",function(e){scriptUrl=e.target.value;});
+  urlrow.appendChild(ui);
+  urlrow.appendChild(btn("btn g","Connect",function(){
+    if(!scriptUrl.trim())return;
+    localStorage.setItem("mpUrl",scriptUrl.trim());
+    loadFromSheets(scriptUrl.trim());
+  }));
+  box.appendChild(urlrow);
+  if(scriptUrl)box.appendChild(el("p",{style:{fontSize:"12px",marginTop:"8px",color:"#2e7d32"}},"✅ URL saved. Auto-refreshes every 60 seconds."));
+  wrap.appendChild(box);
+  wrap.appendChild(div({className:"card",fontSize:"13px",lineHeight:"1.9",color:"#555"},[
+    el("strong",null,"📱 Share with your partner: "),
+    document.createTextNode("Save this file as index.html → drag onto "),
+    el("a",{href:"https://netlify.com",target:"_blank",style:{color:"#2e7d32"}},"netlify.com"),
+    document.createTextNode(" → share the URL. Changes either of you save sync through your Google Sheet.")
+  ]));
+  return wrap;
+}
+
+// ── MAIN RENDER ────────────────────────────────────────────────────────────
+function render(){
+  var app=document.getElementById("app");
+  while(app.firstChild)app.removeChild(app.firstChild);
+  app.appendChild(renderHeader());
+  app.appendChild(renderTabs());
+  var content;
+  if(activeTab==="planner")content=renderPlanner();
+  else if(activeTab==="rotation")content=renderRotation();
+  else if(activeTab==="groceries")content=renderGroceries();
+  else if(activeTab==="mymenu")content=renderMenu();
+  else if(activeTab==="discover")content=renderDiscover();
+  else if(activeTab==="costco")content=renderCostco();
+  else content=renderSetup();
+  app.appendChild(content);
+}
+
+window.addEventListener("DOMContentLoaded",function(){
+  render();
+  if(scriptUrl)loadFromSheets();
+  else setSyncBadge("warn","Go to Setup tab to connect");
+  setInterval(function(){if(scriptUrl)loadFromSheets();},60000);
+});
+</script>
+</body>
+</html>
