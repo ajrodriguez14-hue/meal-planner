@@ -164,31 +164,32 @@ var showAddStaple=false,newStapleItem="";
 var formErr="",copied=false,syncCls="warn",syncTxt="Not connected";
 var randomRecipe=null,randomLoading=false;
 
-// fetch a truly random recipe from TheMealDB free API
-async function fetchRandomRecipe(){
-  randomLoading=true;randomRecipe=null;render();
-  try{
-    var res=await fetch("https://www.themealdb.com/api/json/v1/1/random.php");
-    var data=await res.json();
-    var m=data.meals[0];
-    var ings=[];
-    for(var i=1;i<=20;i++){
-      var ing=m["strIngredient"+i],meas=m["strMeasure"+i];
-      if(ing&&ing.trim())ings.push({item:ing.trim(),qty:(meas||"").trim()||"as needed"});
-    }
-    randomRecipe={
-      _name:m.strMeal,
-      category:m.strCategory,
-      area:m.strArea,
-      thumb:m.strMealThumb,
-      recipe:m.strSource||("https://www.themealdb.com/meal/"+m.idMeal),
-      youtube:m.strYoutube,
-      instructions:m.strInstructions?m.strInstructions.substring(0,300)+"...":"",
-      ingredients:ings
-    };
-  }catch(e){randomRecipe={_name:"Error",instructions:"Could not load recipe. Check your connection.",ingredients:[]};}
-  randomLoading=false;render();
-}
+var RECIPE_SOURCES=[
+  {name:"Budget Bytes",icon:"💰",color:"#e65100",desc:"Affordable family meals",
+   random:"https://www.budgetbytes.com/category/recipes/?orderby=rand",
+   search:function(q){return "https://www.budgetbytes.com/?s="+encodeURIComponent(q);}},
+  {name:"Skinnytaste",icon:"🥗",color:"#2e7d32",desc:"Healthy lower-calorie",
+   random:"https://www.skinnytaste.com/recipes/?fwp_course=dinner&fwp_orderby=random",
+   search:function(q){return "https://www.skinnytaste.com/?s="+encodeURIComponent(q);}},
+  {name:"AllRecipes",icon:"📚",color:"#e53935",desc:"Huge community library",
+   random:"https://www.allrecipes.com/recipes/",
+   search:function(q){return "https://www.allrecipes.com/search?q="+encodeURIComponent(q);}},
+  {name:"Food Network",icon:"⭐",color:"#f57c00",desc:"Restaurant-quality recipes",
+   random:"https://www.foodnetwork.com/recipes",
+   search:function(q){return "https://www.foodnetwork.com/search/"+encodeURIComponent(q)+"--";}},
+  {name:"Simply Recipes",icon:"🍴",color:"#558b2f",desc:"Tested home cooking",
+   random:"https://www.simplyrecipes.com/dinner-recipes-5091433",
+   search:function(q){return "https://www.simplyrecipes.com/search?q="+encodeURIComponent(q);}},
+  {name:"Tasty",icon:"🎬",color:"#6a1b9a",desc:"Quick videos + recipes",
+   random:"https://tasty.co/tag/dinner",
+   search:function(q){return "https://tasty.co/search?q="+encodeURIComponent(q);}},
+  {name:"Isabel Eats",icon:"🌮",color:"#c62828",desc:"Mexican recipes",
+   random:"https://www.isabeleats.com/category/main-dish/",
+   search:function(q){return "https://www.isabeleats.com/?s="+encodeURIComponent(q);}},
+  {name:"NYT Cooking",icon:"📰",color:"#37474f",desc:"Curated, well-tested",
+   random:"https://cooking.nytimes.com/topics/",
+   search:function(q){return "https://cooking.nytimes.com/search?q="+encodeURIComponent(q);}}
+];
 
 // ── DOM HELPERS ────────────────────────────────────────────────────────────
 function el(tag,props,children){
@@ -290,19 +291,32 @@ function removeStapleFromQuickPick(cat,s){
 }
 
 // ── SYNC ───────────────────────────────────────────────────────────────────
+var lastSaved=null; // track last saved state to detect conflicts
 function setSyncBadge(cls,txt){syncCls=cls;syncTxt=txt;render();}
+
 async function saveToSheets(){
   if(!scriptUrl){activeTab="setup";render();return;}
   setSyncBadge("warn","Saving...");
   var custom={};Object.keys(meals).forEach(function(k){if(meals[k].custom)custom[k]=meals[k];});
+  var payload={plan:plan,checked:checked,overrides:overrides,extras:extras,custom:custom,ts:Date.now()};
   try{
-    await fetch(scriptUrl,{method:"POST",body:JSON.stringify({plan:plan,checked:checked,overrides:overrides,extras:extras,custom:custom})});
+    await fetch(scriptUrl,{method:"POST",body:JSON.stringify(payload)});
+    lastSaved=JSON.stringify({plan:plan,checked:checked,overrides:overrides,extras:extras});
     setSyncBadge("ok","Synced "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
   }catch(e){setSyncBadge("err","Sync failed");}
 }
-async function loadFromSheets(url){
+
+async function loadFromSheets(url,isAutoRefresh){
   var u=url||scriptUrl;if(!u)return;
-  setSyncBadge("warn","Loading...");
+  // if auto-refresh, don't overwrite unsaved local changes
+  if(isAutoRefresh){
+    var current=JSON.stringify({plan:plan,checked:checked,overrides:overrides,extras:extras});
+    if(lastSaved!==null&&current!==lastSaved){
+      setSyncBadge("warn","Unsaved changes");
+      return; // don't overwrite — user has pending changes
+    }
+  }
+  if(!isAutoRefresh)setSyncBadge("warn","Loading...");
   try{
     var res=await fetch(u+"?t="+Date.now());
     var txt=await res.text();
@@ -313,6 +327,7 @@ async function loadFromSheets(url){
     if(d.overrides)overrides=d.overrides;
     if(d.extras)extras=d.extras;
     if(d.custom)Object.assign(meals,d.custom);
+    lastSaved=JSON.stringify({plan:plan,checked:checked,overrides:overrides,extras:extras});
     setSyncBadge("ok","Loaded "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));
     render();
   }catch(e){setSyncBadge("err","Load failed — check Setup");}
@@ -993,7 +1008,7 @@ window.addEventListener("DOMContentLoaded",function(){
   render();
   if(scriptUrl)loadFromSheets();
   else setSyncBadge("warn","Go to Setup tab to connect");
-  setInterval(function(){if(scriptUrl)loadFromSheets();},60000);
+  setInterval(function(){if(scriptUrl)loadFromSheets(null,true);},60000);
 });
 </script>
 </body>
